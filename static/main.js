@@ -460,62 +460,8 @@ window.addEventListener('load', () => {
     ctx        = canvas.getContext('2d');
     initCamera();
 
-    // Request server to start loading models (idempotent)
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const loadingText = document.getElementById('loading-text');
-
-    function showOverlay(msg) {
-        if (loadingText) loadingText.textContent = msg || 'Loading models...';
-        if (loadingOverlay) loadingOverlay.classList.remove('hidden');
-    }
-    function hideOverlay() {
-        if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    }
-
-    async function checkStatus() {
-        try {
-            const res = await fetch('/status');
-            const j = await res.json();
-            if (j.loading) {
-                showOverlay('Loading models...');
-                disableStartButtons(true);
-                return false;
-            }
-            if (j.loaded) {
-                hideOverlay();
-                disableStartButtons(false);
-                if (confidenceDisplay) confidenceDisplay.textContent = 'Models ready';
-                return true;
-            }
-            if (j.error) {
-                showOverlay('Model load failed: ' + j.error);
-                disableStartButtons(true);
-                return false;
-            }
-        } catch (err) {
-            showOverlay('Server unreachable');
-            disableStartButtons(true);
-            return false;
-        }
-        return false;
-    }
-
-    function disableStartButtons(disabled) {
-        document.querySelectorAll('.start-button').forEach(btn => btn.disabled = disabled);
-    }
-
-    // Kick off load (server will ignore if already started)
-    fetch('/load_models', { method: 'POST' }).catch(()=>{});
-
-    // Poll status until loaded
-    const poll = setInterval(async () => {
-        const ready = await checkStatus();
-        if (ready) clearInterval(poll);
-    }, 1200);
-
     document.querySelectorAll('.start-button').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (btn.disabled) return;
             if (!isRunning) {
                 // Detect which page this button lives on
                 activePage = btn.closest('#comparison-page') ? 'comparison' : 'dashboard';
