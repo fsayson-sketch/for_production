@@ -446,8 +446,33 @@ class EmotionDetector:
             return {"label": "Error", "confidence": 0.0,
                     "bbox": [], "landmarks": []}
         
-# ─────────────── Initialize detector (once at startup) ───────────────            
-detector = EmotionDetector(model_dir="models")
+# ─────────────── Model loader state (lazy load) ───────────────
+detector = None
+_models_loading = False
+_models_loaded = False
+_models_error = None
+
+def _start_model_loader(model_dir="models"):
+    """Start background thread to load heavy ML models."""
+    global detector, _models_loading, _models_loaded, _models_error
+    if _models_loading or _models_loaded:
+        return
+
+    def _loader():
+        global detector, _models_loading, _models_loaded, _models_error
+        _models_loading = True
+        _models_error = None
+        try:
+            detector = EmotionDetector(model_dir=model_dir)
+            _models_loaded = True
+        except Exception as e:
+            _models_error = str(e)
+            _models_loaded = False
+        finally:
+            _models_loading = False
+
+    t = threading.Thread(target=_loader, daemon=True)
+    t.start()
 
 # ─────────────── Routes ───────────────
 @app.route('/')
@@ -474,9 +499,12 @@ def predict():
     if not data or 'frame' not in data:
         return jsonify({"error": "Missing 'frame' key in JSON body." }), 400
     
-    run_comparison = bool(data.get('compare', False))
-    result         = detector.process_frame(data['frame'], run_comparison)
+    # Ensure models are loaded
+    if not _models_loaded:
+        return jsonify({"error": "Models not loaded yet."}), 503
 
+    run_comparison = bool(data.get('compare', False))
+    result = detector.process_frame(data['frame'], run_comparison)
     return jsonify(result)
 
     # # Decode the image from hte browser
@@ -498,5 +526,31 @@ def predict():
 
 # ─────────────── Entry point ───────────────
 if __name__ == "__main__":
-    threading.Timer(1.2, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    # When running locally, do not open a browser automatically.
+    # Start model loading in background so the process becomes responsive
+    # quickly (useful when deploying behind Cloudflare or workers).
+    _start_model_loader(model_dir="models")
+
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
+
+# ─────────────── Admin / Status endpoints for readiness polling ───────────────
+@app.route('/status', methods=['GET'])
+def status():
+    """Return JSON indicating whether ML models are loaded and any error."""
+    return jsonify({
+        "loaded": bool(_models_loaded),
+        "loading": bool(_models_loading),
+        "error": _models_error or ""
+    })
+
+
+@app.route('/load_models', methods=['POST'])
+def load_models():
+    """Trigger background model loading (idempotent)."""
+    if _models_loaded:
+        return jsonify({"status": "already_loaded"}), 200
+    if _models_loading:
+        return jsonify({"status": "loading"}), 202
+    _start_model_loader(model_dir="models")
+    return jsonify({"status": "started"}), 202

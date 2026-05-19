@@ -16,6 +16,13 @@
         {% block content %} {% endblock %}
     </main>
 
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-inner">
+            <div class="spinner" aria-hidden="true"></div>
+                <div id="loading-text">Loading models...</div>
+        </div>
+    </div>
+
     <video id="video-feed-dash" autoplay muted playsinline></video>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="{{ url_for('static', filename='main.js') }}"></script>
