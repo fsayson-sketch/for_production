@@ -499,4 +499,6 @@ def predict():
 # ─────────────── Entry point ───────────────
 if __name__ == "__main__":
     threading.Timer(1.2, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    #app.run(debug=False, host='0.0.0.0', port=5000)
+    # to this (HF Spaces uses port 7860):
+app.run(debug=False, host='0.0.0.0', port=7860)
