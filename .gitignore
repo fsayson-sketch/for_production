@@ -1,0 +1,12 @@
+# ignoring these folders
+prototypev1.1/
+test/
+
+# ignoring common junk
+.venv/
+__pycache__/
+*.pyc
+.vscode/
+
+# install important libraries
+pip install flask tensorflow catboost mediapipe dlib opencv-python scipy scikit-learn pandas numpy
